@@ -293,14 +293,18 @@ export const SwapProvider = ({ children }) => {
       setError(null);
       try {
         // Step 1: Create the exchange
-        const createResponse = await axios.post(`${API_URL}/create_exchange`, {
-          api_key: API_KEY,
-          fixed: isFixed,
-          currency_from: data.sellCurrency.toLowerCase(),
-          currency_to: data.buyCurrency.toLowerCase(),
-          amount: data.sellAmount,
-          address_to: data.recipientAddress,
+        const createResponse = await axios.get(`${API_URL}/create_exchange`, {
+          params: {
+            api_key: API_KEY,
+            fixed: isFixed,
+            currency_from: data.sellCurrency.toLowerCase(),
+            currency_to: data.buyCurrency.toLowerCase(),
+            amount: data.sellAmount,
+            address_to: data.recipientAddress,
+          }
         });
+
+        console.log('Create exchange response:', createResponse.data);
 
         if (!createResponse.data || !createResponse.data.id) {
           throw new Error('Failed to create exchange: Invalid response');
@@ -344,12 +348,13 @@ export const SwapProvider = ({ children }) => {
       } catch (error) {
         console.error('Error creating exchange:', error);
         if (error.response) {
+          console.error('Error response:', error.response.data);
           switch (error.response.status) {
             case 400:
-              setError('Invalid request parameters. Please check your input.');
+              setError(`Invalid request parameters: ${error.response.data?.error || 'Please check your input.'}`);
               break;
             case 401:
-              setError('Authentication failed. Please check your API key in the .env file.');
+              setError(`Authentication failed: ${error.response.data?.error || 'Please check your API key in the .env file.'}`);
               break;
             case 429:
               setError('Too many requests. Please try again later.');
@@ -364,7 +369,7 @@ export const SwapProvider = ({ children }) => {
         setIsExchangeLoading(false);
       }
     }
-  }, [isFixed, validateForm, API_KEY]);
+  }, [isFixed, validateForm]);
 
   const getFilteredOptions = useCallback(() => {
     const popular = cryptocurrencies.filter(c => ['BTC', 'ETH', 'USDT', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT'].includes(c.symbol.toUpperCase()));
