@@ -64,7 +64,7 @@ export const SwapProvider = ({ children }) => {
         setEstimatedExchangeAmount(null);
       }
     }, 500),
-    [isFixed, API_KEY, API_URL, setError, setIsEstimateLoading, setEstimatedExchangeAmount]
+    [isFixed, setError, setIsEstimateLoading, setEstimatedExchangeAmount]
   );
 
   const fetchEstimatedExchange = useCallback((amount, from, to) => {
