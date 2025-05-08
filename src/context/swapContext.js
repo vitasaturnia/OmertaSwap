@@ -49,30 +49,33 @@ export const SwapProvider = ({ children }) => {
           },
         });
 
-        if (response.data) {
-          let estimatedAmount;
-          if (typeof response.data === 'number') {
-            estimatedAmount = response.data;
-          } else if (response.data && typeof response.data.estimated_amount === 'number') {
-            estimatedAmount = response.data.estimated_amount;
-          } else if (response.data && response.data.error) {
-            throw new Error(response.data.error);
-          } else {
-            throw new Error('Invalid response format from server');
-          }
-
-          if (estimatedAmount > 0) {
-            setEstimatedExchangeAmount(estimatedAmount);
-            setError(null);
-          } else {
-            throw new Error('Invalid estimated amount received');
-          }
-        } else {
+        if (!response.data) {
           throw new Error('Empty response from server');
+        }
+
+        let estimatedAmount;
+        if (typeof response.data === 'number') {
+          estimatedAmount = response.data;
+        } else if (response.data && typeof response.data.estimated_amount === 'number') {
+          estimatedAmount = response.data.estimated_amount;
+        } else if (response.data && response.data.error) {
+          throw new Error(response.data.error);
+        } else if (response.data && response.data.result) {
+          estimatedAmount = response.data.result;
+        } else {
+          throw new Error('Invalid response format from server');
+        }
+
+        if (estimatedAmount > 0) {
+          setEstimatedExchangeAmount(estimatedAmount);
+          setError(null);
+        } else {
+          throw new Error('Invalid estimated amount received');
         }
       } catch (error) {
         console.error('Error fetching estimated exchange:', error);
         setEstimatedExchangeAmount(null);
+        
         if (error.response) {
           switch (error.response.status) {
             case 400:
@@ -87,8 +90,10 @@ export const SwapProvider = ({ children }) => {
             default:
               setError(error.response.data?.error || 'Failed to estimate exchange. Please try again later.');
           }
+        } else if (error.message) {
+          setError(error.message);
         } else {
-          setError(error.message || 'Failed to estimate exchange. Please try again later.');
+          setError('Failed to estimate exchange. Please try again later.');
         }
       } finally {
         setIsEstimateLoading(false);
