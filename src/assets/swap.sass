@@ -1,0 +1,201 @@
+.swap-container
+  min-height: 100vh
+  display: flex
+  justify-content: center
+  align-items: center
+  background-color: $black
+  
+  .swap-box
+    max-width: 400px
+    width: 100%
+    padding: 2rem
+    background-color: $dark
+    border-radius: 12px
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3)
+
+    .title
+      color: $white
+      margin-bottom: 1.5rem
+      font-size: 1.75rem
+      text-align: center
+
+    .field
+      margin-bottom: 1.5rem
+
+    .label
+      color: $grey-light
+      font-size: 0.9rem
+      margin-bottom: 0.5rem
+
+    .input
+      background-color: $grey-darker
+      color: $white
+      border: 1px solid $grey-dark
+      border-radius: 8px
+      height: 3rem
+      &::placeholder
+        color: $grey-light
+      &:focus
+        border-color: $primary
+        box-shadow: 0 0 0 1px $primary
+
+    .currency-selector
+      margin-top: 0.5rem
+
+    .swap-controls
+      display: flex
+      justify-content: space-between
+      align-items: center
+      margin: 1.5rem 0
+
+    .rate-type-selector
+      display: flex
+      align-items: center
+      cursor: pointer
+      padding: 0.5rem 1rem
+      border-radius: 20px
+      transition: background-color 0.3s ease, color 0.3s ease
+      font-weight: bold
+      &.fixed
+        background-color: $primary
+        color: $white
+      &.floating
+        background-color: $grey-darker
+        color: $grey-light
+      &:hover
+        opacity: 0.8
+      svg
+        margin-right: 0.5rem
+
+    .swap-icon-container
+      display: flex
+      justify-content: center
+      align-items: center
+
+    .swap-icon
+      font-size: 1.2rem
+      color: $grey-light
+      cursor: pointer
+      transition: transform 0.2s ease-in-out, color 0.2s ease-in-out
+      &:hover
+        transform: scale(1.1)
+        color: $primary
+
+    .recipient-address
+      margin-top: 1rem
+
+    .min-max-info
+      font-size: 0.8rem
+      color: $grey-light
+      margin-top: 0.5rem
+
+    .button
+      height: 3rem
+      font-size: 1rem
+      font-weight: bold
+      border-radius: 8px
+      transition: all 0.3s ease
+      &:hover
+        opacity: 0.9
+
+    .exchange-info
+      margin-top: 1rem
+      padding: 1rem
+      background-color: $grey-darker
+      border-radius: 8px
+      font-size: 0.9rem
+      color: $grey-light
+
+    .error-message
+      color: $danger
+      font-size: 0.9rem
+      margin-top: 0.25rem
+
+    .loading-overlay
+      position: absolute
+      top: 50%
+      right: 10px
+      transform: translateY(-50%)
+
+  .currency-selector
+    .select__control
+      border-radius: 8px
+      height: 3rem
+      background-color: $grey-darker
+      border-color: $grey-dark
+      &:hover
+        border-color: $grey-light
+      &--is-focused
+        border-color: $primary
+        box-shadow: 0 0 0 1px $primary
+
+    .select__single-value,
+    .select__input-container
+      margin: 0
+      padding: 0
+      color: $white
+
+    .select__value-container
+      padding: 0 0.75em
+
+    .categories-container
+      padding: 10px
+      border-bottom: 1px solid $grey-dark
+
+    .category-buttons
+      display: flex
+      gap: 8px
+      flex-wrap: wrap
+      margin-bottom: 8px
+      @media (max-width: 600px)
+        justify-content: center
+
+    .category-button
+      background-color: $grey-darker
+      border: 1px solid $grey-dark
+      border-radius: 20px
+      padding: 8px 16px
+      font-size: 14px
+      color: $grey-light
+      cursor: pointer
+      transition: background-color 0.3s ease, color 0.3s ease
+      &.active
+        background-color: $primary
+        color: $white
+
+    .search-input-container
+      width: 100%
+      margin-top: 8px
+
+    .search-input
+      width: 100%
+      padding: 10px
+      border-radius: 8px
+      border: 1px solid $grey-dark
+      background-color: $grey-darker
+      color: $white
+      @media (max-width: 600px)
+        padding: 8px
+
+// Responsive design adjustments
+@media (max-width: 768px)
+  .swap-container
+    .swap-box
+      padding: 1.5rem
+
+      .swap-controls
+        flex-direction: column
+        align-items: center
+
+      .rate-type-selector
+        margin-bottom: 1rem
+
+      .swap-icon-container
+        margin-top: 0.5rem
+
+@media (max-width: 600px)
+  .swap-container
+    .swap-box
+      .currency-selector
+        .category-buttons
+          justify-content: center

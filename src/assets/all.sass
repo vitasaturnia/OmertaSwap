@@ -1,0 +1,45 @@
+@import "bulma/bulma"
+@import "../assets/variables.sass"
+@import "../assets/swap.sass"
+@import "../assets/tos.sass"
+@import "../assets/contact.sass"
+@import "../assets/faq.sass"
+
+@import "variables"
+@import "swap"
+@import "contact"
+@import "faq"
+@import "tos"
+
+
+.is-fullheight
+  height: calc(100vh - 6em) !important
+
+
+
+.footer
+  background-color: #272727
+  color: #ffffff
+  padding: 2rem 1.5rem
+
+  .content
+    max-width: 1000px
+    margin: 0 auto
+
+  p
+    margin-bottom: 1rem
+    font-size: 1rem
+
+  .social-icons
+    margin-top: 1rem
+
+    a
+      color: #ffffff
+      margin: 0 0.5rem
+      transition: color 0.3s ease
+
+      &:hover
+        color: #ffd700 // Example hover color
+
+      .icon
+        font-size: 1.5rem
