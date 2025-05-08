@@ -299,9 +299,9 @@ export const SwapProvider = ({ children }) => {
           currency_to: data.buyCurrency.toLowerCase(),
           amount: data.sellAmount,
           address_to: data.recipientAddress,
+          api_key: API_KEY
         }, {
           headers: {
-            'Authorization': `Bearer ${API_KEY}`,
             'Content-Type': 'application/json'
           }
         });
@@ -323,10 +323,8 @@ export const SwapProvider = ({ children }) => {
           try {
             const statusResponse = await axios.get(`${API_URL}/get_exchange`, {
               params: {
-                id: exchangeId
-              },
-              headers: {
-                'Authorization': `Bearer ${API_KEY}`
+                id: exchangeId,
+                api_key: API_KEY
               }
             });
 
