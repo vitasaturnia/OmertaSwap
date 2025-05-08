@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import axios from 'axios';
 import debounce from 'lodash/debounce';
 
@@ -28,43 +28,45 @@ export const SwapProvider = ({ children }) => {
   const [isFixed, setIsFixed] = useState(false);
   const [estimatedExchangeAmount, setEstimatedExchangeAmount] = useState(null);
 
-  const debouncedFetchEstimated = useCallback(
-    debounce(async (amount, from, to) => {
-      if (amount && from && to) {
-        setIsEstimateLoading(true);
-        try {
-          const response = await axios.get(`${API_URL}/get_estimated`, {
-            params: {
-              api_key: API_KEY,
-              fixed: isFixed,
-              currency_from: from,
-              currency_to: to,
-              amount: amount,
-            },
-          });
+  const fetchEstimated = useCallback(async (amount, from, to) => {
+    if (amount && from && to) {
+      setIsEstimateLoading(true);
+      try {
+        const response = await axios.get(`${API_URL}/get_estimated`, {
+          params: {
+            api_key: API_KEY,
+            fixed: isFixed,
+            currency_from: from,
+            currency_to: to,
+            amount: amount,
+          },
+        });
 
-          let estimatedAmount;
-          if (typeof response.data === 'number') {
-            estimatedAmount = response.data;
-          } else if (response.data && typeof response.data.estimated_amount === 'number') {
-            estimatedAmount = response.data.estimated_amount;
-          } else {
-            throw new Error('Invalid response format');
-          }
-
-          setEstimatedExchangeAmount(estimatedAmount);
-        } catch (error) {
-          console.error('Error fetching estimated exchange:', error);
-          setError('Failed to estimate exchange. Please try again later.');
-          setEstimatedExchangeAmount(null);
-        } finally {
-          setIsEstimateLoading(false);
+        let estimatedAmount;
+        if (typeof response.data === 'number') {
+          estimatedAmount = response.data;
+        } else if (response.data && typeof response.data.estimated_amount === 'number') {
+          estimatedAmount = response.data.estimated_amount;
+        } else {
+          throw new Error('Invalid response format');
         }
-      } else {
+
+        setEstimatedExchangeAmount(estimatedAmount);
+      } catch (error) {
+        console.error('Error fetching estimated exchange:', error);
+        setError('Failed to estimate exchange. Please try again later.');
         setEstimatedExchangeAmount(null);
+      } finally {
+        setIsEstimateLoading(false);
       }
-    }, 500),
-    [isFixed, setError, setIsEstimateLoading, setEstimatedExchangeAmount]
+    } else {
+      setEstimatedExchangeAmount(null);
+    }
+  }, [isFixed, setError, setIsEstimateLoading, setEstimatedExchangeAmount]);
+
+  const debouncedFetchEstimated = useMemo(
+    () => debounce(fetchEstimated, 500),
+    [fetchEstimated]
   );
 
   const fetchEstimatedExchange = useCallback((amount, from, to) => {
