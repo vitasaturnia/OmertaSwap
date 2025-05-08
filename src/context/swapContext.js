@@ -293,15 +293,13 @@ export const SwapProvider = ({ children }) => {
       setError(null);
       try {
         // Step 1: Create the exchange
-        const createResponse = await axios.get(`${API_URL}/create_exchange`, {
-          params: {
-            api_key: API_KEY,
-            fixed: isFixed,
-            currency_from: data.sellCurrency.toLowerCase(),
-            currency_to: data.buyCurrency.toLowerCase(),
-            amount: data.sellAmount,
-            address_to: data.recipientAddress,
-          }
+        const createResponse = await axios.post(`${API_URL}/create_exchange`, {
+          api_key: API_KEY,
+          fixed: isFixed,
+          currency_from: data.sellCurrency.toLowerCase(),
+          currency_to: data.buyCurrency.toLowerCase(),
+          amount: data.sellAmount,
+          address_to: data.recipientAddress,
         });
 
         console.log('Create exchange response:', createResponse.data);
@@ -355,6 +353,9 @@ export const SwapProvider = ({ children }) => {
               break;
             case 401:
               setError(`Authentication failed: ${error.response.data?.error || 'Please check your API key in the .env file.'}`);
+              break;
+            case 404:
+              setError('Exchange endpoint not found. Please check the API documentation.');
               break;
             case 429:
               setError('Too many requests. Please try again later.');
