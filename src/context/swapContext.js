@@ -294,12 +294,16 @@ export const SwapProvider = ({ children }) => {
       try {
         // Step 1: Create the exchange
         const createResponse = await axios.post(`${API_URL}/create_exchange`, {
-          api_key: API_KEY,
           fixed: isFixed,
           currency_from: data.sellCurrency.toLowerCase(),
           currency_to: data.buyCurrency.toLowerCase(),
           amount: data.sellAmount,
           address_to: data.recipientAddress,
+        }, {
+          headers: {
+            'Authorization': `Bearer ${API_KEY}`,
+            'Content-Type': 'application/json'
+          }
         });
 
         console.log('Create exchange response:', createResponse.data);
@@ -319,8 +323,10 @@ export const SwapProvider = ({ children }) => {
           try {
             const statusResponse = await axios.get(`${API_URL}/get_exchange`, {
               params: {
-                api_key: API_KEY,
                 id: exchangeId
+              },
+              headers: {
+                'Authorization': `Bearer ${API_KEY}`
               }
             });
 
