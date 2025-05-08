@@ -292,14 +292,19 @@ export const SwapProvider = ({ children }) => {
       setIsExchangeLoading(true);
       setError(null);
       try {
-        // Step 1: Create the exchange
-        const createResponse = await axios.post(`${API_URL}/create_exchange?api_key=${API_KEY}`, {
+        // Prepare request data
+        const requestData = {
           fixed: isFixed,
           currency_from: data.sellCurrency.toLowerCase(),
           currency_to: data.buyCurrency.toLowerCase(),
-          amount: data.sellAmount,
+          amount: parseFloat(data.sellAmount),
           address_to: data.recipientAddress
-        }, {
+        };
+
+        console.log('Creating exchange with data:', requestData);
+
+        // Step 1: Create the exchange
+        const createResponse = await axios.post(`${API_URL}/create_exchange?api_key=${API_KEY}`, requestData, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -350,9 +355,18 @@ export const SwapProvider = ({ children }) => {
         console.error('Error creating exchange:', error);
         if (error.response) {
           console.error('Error response:', error.response.data);
+          console.error('Request data:', {
+            url: `${API_URL}/create_exchange?api_key=${API_KEY}`,
+            data: requestData,
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
           switch (error.response.status) {
             case 400:
-              setError(`Invalid request parameters: ${error.response.data?.error || 'Please check your input.'}`);
+              const errorMessage = error.response.data?.error || error.response.data?.message || 'Please check your input.';
+              setError(`Invalid request parameters: ${errorMessage}`);
               break;
             case 401:
               setError(`Authentication failed: ${error.response.data?.error || 'Please check your API key in the .env file.'}`);
