@@ -291,18 +291,19 @@ export const SwapProvider = ({ children }) => {
     if (isValid) {
       setIsExchangeLoading(true);
       setError(null);
+      
+      // Prepare request data
+      const requestData = {
+        fixed: isFixed,
+        currency_from: data.sellCurrency.toLowerCase(),
+        currency_to: data.buyCurrency.toLowerCase(),
+        amount: parseFloat(data.sellAmount),
+        address_to: data.recipientAddress
+      };
+
+      console.log('Creating exchange with data:', requestData);
+
       try {
-        // Prepare request data
-        const requestData = {
-          fixed: isFixed,
-          currency_from: data.sellCurrency.toLowerCase(),
-          currency_to: data.buyCurrency.toLowerCase(),
-          amount: parseFloat(data.sellAmount),
-          address_to: data.recipientAddress
-        };
-
-        console.log('Creating exchange with data:', requestData);
-
         // Step 1: Create the exchange
         const createResponse = await axios.post(`${API_URL}/create_exchange?api_key=${API_KEY}`, requestData, {
           headers: {
