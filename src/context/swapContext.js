@@ -156,7 +156,7 @@ export const SwapProvider = ({ children }) => {
         setEstimatedExchangeAmount(null);
       }
     }, 500),
-    [isFixed]
+    [isFixed, API_KEY, API_URL, setError, setIsEstimateLoading, setEstimatedExchangeAmount]
   );
 
   const handleSwapCurrencies = useCallback(() => {

@@ -1,5 +1,4 @@
 import React from 'react';
-import Layout from "../components/Layout"
 import SwapComponent from '../components/SwapComponent';
 
 const SwapPage = () => {
