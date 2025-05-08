@@ -1,9 +1,55 @@
 import React, { createContext, useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import axios from 'axios';
 import debounce from 'lodash/debounce';
+import { getCoderByCoinName } from '@ensdomains/address-encoder';
 
 const API_KEY = process.env.REACT_APP_SWAP_API_KEY;
 const API_URL = 'https://api.simpleswap.io/v1';
+
+// Add axios instance with default config
+const api = axios.create({
+  baseURL: API_URL,
+  timeout: 30000, // 30 second timeout
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest'
+  }
+});
+
+// Add request interceptor for API key
+api.interceptors.request.use(config => {
+  config.params = {
+    ...config.params,
+    api_key: API_KEY
+  };
+  return config;
+});
+
+// Add response interceptor for error handling
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response) {
+      // Handle specific error cases
+      switch (error.response.status) {
+        case 401:
+          console.error('Authentication failed');
+          break;
+        case 429:
+          console.error('Rate limit exceeded');
+          break;
+        case 500:
+          console.error('Server error');
+          break;
+        default:
+          console.error('API request failed:', error.response.status);
+          break;
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 const SwapContext = createContext();
 
@@ -30,6 +76,12 @@ export const SwapProvider = ({ children }) => {
   const [estimatedExchangeAmount, setEstimatedExchangeAmount] = useState(null);
   const [depositAddress, setDepositAddress] = useState(null);
   const [exchangeDetails, setExchangeDetails] = useState(null);
+  const [addressValidationStatus, setAddressValidationStatus] = useState({
+    isValid: false,
+    isChecking: false,
+    hint: '',
+    error: ''
+  });
 
   // Verify API key is present
   useEffect(() => {
@@ -58,14 +110,13 @@ export const SwapProvider = ({ children }) => {
           amount: numericAmount,
         });
 
-        const response = await axios.get(`${API_URL}/get_estimated`, {
+        const response = await api.get('/get_estimated', {
           params: {
-            api_key: API_KEY,
             fixed: isFixed,
             currency_from: from.toLowerCase(),
             currency_to: to.toLowerCase(),
             amount: numericAmount,
-          },
+          }
         });
 
         console.log('API Response:', response.data);
@@ -160,12 +211,37 @@ export const SwapProvider = ({ children }) => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await axios.get(`${API_URL}/get_all_currencies`, {
-          params: { api_key: API_KEY },
+        // First, fetch top 100 coins from CoinGecko
+        const geckoResponse = await axios.get('https://api.coingecko.com/api/v3/coins/markets', {
+          params: {
+            vs_currency: 'usd',
+            order: 'market_cap_desc',
+            per_page: 100,
+            page: 1,
+            sparkline: false
+          }
         });
 
+        // Get the symbols of top 100 coins
+        const topCoins = new Set(geckoResponse.data.map(coin => coin.symbol.toUpperCase()));
+
+        // Then fetch all currencies from SimpleSwap
+        const response = await api.get('/get_all_currencies');
+
         if (response.data && Array.isArray(response.data)) {
-          const cryptos = response.data.filter(currency => !currency.isFiat);
+          // Filter out fiat currencies and only keep top 100 coins
+          const cryptos = response.data
+            .filter(currency => !currency.isFiat && topCoins.has(currency.symbol.toUpperCase()))
+            .sort((a, b) => {
+              // Define popular cryptocurrencies to show first
+              const popularCoins = ['BTC', 'ETH', 'USDT', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT', 'SOL', 'MATIC'];
+              const aIsPopular = popularCoins.includes(a.symbol.toUpperCase());
+              const bIsPopular = popularCoins.includes(b.symbol.toUpperCase());
+              
+              if (aIsPopular && !bIsPopular) return -1;
+              if (!aIsPopular && bIsPopular) return 1;
+              return 0;
+            });
           setCryptocurrencies(cryptos);
         } else {
           throw new Error('Invalid response format');
@@ -180,12 +256,40 @@ export const SwapProvider = ({ children }) => {
 
     const loadIcons = async () => {
       const icons = {};
-      const iconContext = require.context('cryptocurrency-icons/svg/color', false, /\.svg$/);
-      iconContext.keys().forEach(key => {
-        const currencyCode = key.split('/').pop().split('.')[0].toUpperCase();
-        icons[currencyCode] = iconContext(key);
-      });
-      setIconMap(icons);
+      let genericIcon;
+      try {
+        // Load the generic icon as fallback
+        genericIcon = await import('cryptocurrency-icons/svg/color/generic.svg');
+        icons['GENERIC'] = genericIcon.default;
+
+        // Load icons for popular cryptocurrencies
+        const popularCoins = ['BTC', 'ETH', 'USDT', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT', 'SOL', 'MATIC'];
+        for (const symbol of popularCoins) {
+          try {
+            const icon = await import(`cryptocurrency-icons/svg/color/${symbol.toLowerCase()}.svg`);
+            icons[symbol] = icon.default;
+          } catch (error) {
+            console.warn(`Icon not found for ${symbol}, using generic icon`);
+            icons[symbol] = genericIcon.default;
+          }
+        }
+
+        // Load icons for other cryptocurrencies as needed
+        const iconContext = require.context('cryptocurrency-icons/svg/color', false, /\.svg$/);
+        iconContext.keys().forEach(key => {
+          const currencyCode = key.split('/').pop().split('.')[0].toUpperCase();
+          if (!icons[currencyCode]) {
+            icons[currencyCode] = iconContext(key);
+          }
+        });
+
+        setIconMap(icons);
+      } catch (error) {
+        console.error('Error loading icons:', error);
+        // Set a basic fallback icon map with a default icon
+        const defaultIcon = require('cryptocurrency-icons/svg/color/generic.svg');
+        setIconMap({ 'GENERIC': defaultIcon });
+      }
     };
 
     fetchCryptocurrencies();
@@ -196,8 +300,8 @@ export const SwapProvider = ({ children }) => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await axios.get(`${API_URL}/get_pairs`, {
-        params: { api_key: API_KEY, fixed: fixed, symbol: currency },
+      const response = await api.get('/get_pairs', {
+        params: { fixed: fixed, symbol: currency },
       });
 
       if (response.data && Array.isArray(response.data)) {
@@ -221,9 +325,8 @@ export const SwapProvider = ({ children }) => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await axios.get(`${API_URL}/get_ranges`, {
+        const response = await api.get('/get_ranges', {
           params: {
-            api_key: API_KEY,
             fixed: isFixed,
             currency_from: sellCurrency,
             currency_to: buyCurrency,
@@ -254,6 +357,106 @@ export const SwapProvider = ({ children }) => {
     setBuyAmount(sellAmount);
   }, [buyCurrency, sellCurrency, buyAmount, sellAmount]);
 
+  // Address validation utilities
+  const getAddressFormatHint = useCallback((currency) => {
+    try {
+      const coder = getCoderByCoinName(currency?.toLowerCase());
+      if (!coder) return 'Enter a valid cryptocurrency address';
+    } catch (error) {
+      return 'Enter a valid cryptocurrency address';
+    }
+    
+    switch (currency?.toLowerCase()) {
+      case 'btc':
+        return 'Bitcoin addresses start with 1, 3, or bc1';
+      case 'eth':
+        return 'Ethereum addresses are 42 characters long and start with 0x';
+      case 'doge':
+        return 'Dogecoin addresses start with D and are 34-35 characters long';
+      case 'xrp':
+        return 'XRP addresses are 25-35 characters long';
+      case 'ltc':
+        return 'Litecoin addresses start with L, M, or 3';
+      case 'bch':
+        return 'Bitcoin Cash addresses start with bitcoincash: or 1';
+      case 'xmr':
+        return 'Monero addresses are 95 characters long';
+      case 'dash':
+        return 'Dash addresses start with X';
+      case 'xlm':
+        return 'Stellar addresses are 56 characters long';
+      case 'ada':
+        return 'Cardano addresses start with addr1';
+      case 'sol':
+        return 'Solana addresses are 32-44 characters long';
+      case 'dot':
+        return 'Polkadot addresses start with 1';
+      case 'matic':
+        return 'Polygon addresses are 42 characters long and start with 0x';
+      default:
+        return 'Enter a valid cryptocurrency address';
+    }
+  }, []);
+
+  const validateAddress = useCallback((address, currency) => {
+    if (!address || !currency) return false;
+    
+    try {
+      const coder = getCoderByCoinName(currency.toLowerCase());
+      if (!coder) return false;
+      
+      // Try to decode the address
+      coder.decode(address);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }, []);
+
+  // Real-time address validation
+  const validateAddressInRealTime = useCallback(
+    debounce((address, currency) => {
+      if (!address || !currency) {
+        setAddressValidationStatus({
+          isValid: false,
+          isChecking: false,
+          hint: getAddressFormatHint(currency),
+          error: ''
+        });
+        return;
+      }
+
+      setAddressValidationStatus(prev => ({ ...prev, isChecking: true }));
+
+      try {
+        const isValid = validateAddress(address, currency);
+        
+        setAddressValidationStatus({
+          isValid,
+          isChecking: false,
+          hint: getAddressFormatHint(currency),
+          error: isValid ? '' : `Invalid ${currency.toUpperCase()} address format`
+        });
+      } catch (error) {
+        setAddressValidationStatus({
+          isValid: false,
+          isChecking: false,
+          hint: getAddressFormatHint(currency),
+          error: 'Error validating address'
+        });
+      }
+    }, 500),
+    [validateAddress, getAddressFormatHint]
+  );
+
+  // Update validation when address or currency changes
+  useEffect(() => {
+    if (recipientAddress && buyCurrency) {
+      validateAddressInRealTime(recipientAddress, buyCurrency);
+    }
+  }, [recipientAddress, buyCurrency, validateAddressInRealTime]);
+
+  // Enhanced validateForm function
   const validateForm = useCallback((data) => {
     const errors = {};
 
@@ -275,11 +478,26 @@ export const SwapProvider = ({ children }) => {
 
     if (!data.recipientAddress) {
       errors.recipientAddress = 'Please enter a recipient address';
+    } else {
+      const address = data.recipientAddress.trim();
+      const currency = data.buyCurrency.toLowerCase();
+      
+      // Enhanced address validation
+      if (!validateAddress(address, currency)) {
+        errors.recipientAddress = `Invalid ${currency.toUpperCase()} address. Please check the address format.`;
+      }
+
+      // Additional checks for specific cryptocurrencies
+      if (currency === 'xrp' || currency === 'xlm' || currency === 'xmr') {
+        if (!data.extra_id_to) {
+          errors.extra_id_to = `Please enter a memo/tag for ${currency.toUpperCase()}`;
+        }
+      }
     }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
-  }, [minAmount, maxAmount]);
+  }, [minAmount, maxAmount, validateAddress]);
 
   const handleSubmit = useCallback(async (data) => {
     if (!API_KEY) {
@@ -294,22 +512,26 @@ export const SwapProvider = ({ children }) => {
       
       // Prepare request data
       const requestData = {
-        fixed: isFixed,
+        fixed: isFixed ? 1 : 0,
         currency_from: data.sellCurrency.toLowerCase(),
         currency_to: data.buyCurrency.toLowerCase(),
-        amount: parseFloat(data.sellAmount),
-        address_to: data.recipientAddress
+        amount: parseFloat(data.sellAmount).toString(),
+        address_to: data.recipientAddress.trim(),
+        return_address: data.recipientAddress.trim(),
+        extra_id_to: '',
+        extra_id_return: ''
       };
+
+      // Add memo/tag for specific currencies if needed
+      if (['xrp', 'xlm', 'xmr'].includes(data.buyCurrency.toLowerCase())) {
+        requestData.extra_id_to = '0'; // Default memo/tag
+      }
 
       console.log('Creating exchange with data:', requestData);
 
       try {
         // Step 1: Create the exchange
-        const createResponse = await axios.post(`${API_URL}/create_exchange?api_key=${API_KEY}`, requestData, {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
+        const createResponse = await api.post('/create_exchange', requestData);
 
         console.log('Create exchange response:', createResponse.data);
 
@@ -326,11 +548,10 @@ export const SwapProvider = ({ children }) => {
         // Step 2: Start monitoring the exchange status
         const monitorExchange = async () => {
           try {
-            const statusResponse = await axios.get(`${API_URL}/get_exchange`, {
+            const statusResponse = await api.get('/get_exchange', {
               params: {
                 id: exchangeId,
-                api_key: API_KEY
-              }
+              },
             });
 
             if (statusResponse.data) {
@@ -355,18 +576,24 @@ export const SwapProvider = ({ children }) => {
       } catch (error) {
         console.error('Error creating exchange:', error);
         if (error.response) {
-          console.error('Error response:', error.response.data);
+          console.error('Error response data:', error.response.data);
+          console.error('Error response status:', error.response.status);
+          console.error('Error response headers:', error.response.headers);
           console.error('Request data:', {
-            url: `${API_URL}/create_exchange?api_key=${API_KEY}`,
+            url: '/create_exchange',
             data: requestData,
             headers: {
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
             }
           });
           
           switch (error.response.status) {
             case 400:
-              const errorMessage = error.response.data?.error || error.response.data?.message || 'Please check your input.';
+              const errorMessage = error.response.data?.error || 
+                                 error.response.data?.message || 
+                                 error.response.data?.detail ||
+                                 'Please check your input.';
               setError(`Invalid request parameters: ${errorMessage}`);
               break;
             case 401:
@@ -390,6 +617,7 @@ export const SwapProvider = ({ children }) => {
     }
   }, [isFixed, validateForm]);
 
+  // Memoize filtered options function
   const getFilteredOptions = useCallback(() => {
     const popular = cryptocurrencies.filter(c => ['BTC', 'ETH', 'USDT', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT'].includes(c.symbol.toUpperCase()));
     const others = cryptocurrencies.filter(c => !['BTC', 'ETH', 'USDT', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT'].includes(c.symbol.toUpperCase()));
@@ -416,7 +644,8 @@ export const SwapProvider = ({ children }) => {
     return options.map(group => ({ ...group, options: filterOptions(group.options) })).filter(group => group.options.length > 0);
   }, [cryptocurrencies, iconMap, searchInput]);
 
-  const contextValue = {
+  // Add addressValidationStatus to context value
+  const contextValue = useMemo(() => ({
     sellAmount,
     setSellAmount,
     buyAmount,
@@ -454,7 +683,17 @@ export const SwapProvider = ({ children }) => {
     fetchMinMaxAmount,
     depositAddress,
     exchangeDetails,
-  };
+    addressValidationStatus,
+    validateAddressInRealTime,
+    getAddressFormatHint,
+  }), [
+    sellAmount, buyAmount, sellCurrency, buyCurrency, recipientAddress,
+    cryptocurrencies, availablePairs, error, isLoading, isEstimateLoading,
+    isExchangeLoading, minAmount, maxAmount, formErrors, exchangeId,
+    exchangeStatus, isFixed, estimatedExchangeAmount, searchInput, iconMap,
+    getFilteredOptions, depositAddress, exchangeDetails, addressValidationStatus,
+    validateAddressInRealTime, getAddressFormatHint
+  ]);
 
   return <SwapContext.Provider value={contextValue}>{children}</SwapContext.Provider>;
 };

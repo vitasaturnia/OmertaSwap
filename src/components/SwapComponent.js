@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowsUpDown, faSync, faInfoCircle, faExclamationTriangle, faLock, faLockOpen } from '@fortawesome/free-solid-svg-icons';
 import { ClipLoader } from 'react-spinners';
 import CurrencySelector from './CurrencySelector';
+import AddressValidationIndicator from './AddressValidationIndicator';
 import { useSwap } from '../context/swapContext';
 import Layout from './Layout';
 
@@ -37,6 +38,8 @@ const SwapComponent = () => {
     depositAddress,
     exchangeDetails,
     isExchangeLoading,
+    addressValidationStatus,
+    setRecipientAddress,
   } = useSwap();
 
   const [isBuyInputActive, setIsBuyInputActive] = useState(false);
@@ -236,10 +239,15 @@ const SwapComponent = () => {
                       className={`input ${errors.recipientAddress ? 'is-danger' : ''}`}
                       type="text"
                       placeholder="Enter recipient address"
+                      onChange={(e) => {
+                        field.onChange(e);
+                        setRecipientAddress(e.target.value);
+                      }}
                     />
                   )}
                 />
               </div>
+              <AddressValidationIndicator status={addressValidationStatus} />
               {errors.recipientAddress && <p className="help is-danger">{errors.recipientAddress.message}</p>}
             </div>
 
@@ -254,7 +262,25 @@ const SwapComponent = () => {
 
             <div className="field is-grouped">
               <div className="control">
-                <button className="button is-primary mt-3" type="submit" disabled={isLoading || isExchangeLoading}>
+                <button 
+                  className="button is-medium mt-3 has-text-weight-bold" 
+                  type="submit" 
+                  disabled={isLoading || isExchangeLoading}
+                  style={{
+                    background: 'linear-gradient(90deg, #ff0000, #cc0000)',
+                    color: '#ffffff',
+                    border: 'none',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.target.style.transform = 'translateY(-2px)';
+                    e.target.style.boxShadow = '0 4px 15px rgba(255, 0, 0, 0.3)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                >
                   {isExchangeLoading ? <ClipLoader color="#ffffff" size={20} /> : 'Swap'}
                 </button>
               </div>

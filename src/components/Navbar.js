@@ -1,27 +1,45 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import logo from '../assets/logo.png';
 
+const Navbar = () => {
+  const [isActive, setIsActive] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
-const Header = () => {
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
-    <nav className="navbar is-primary" role="navigation" aria-label="main navigation">
+    <nav className={`navbar is-fixed-top ${isScrolled ? 'is-scrolled' : ''}`} role="navigation" aria-label="main navigation">
       <div className="navbar-brand">
         <Link to="/" className="navbar-item">
-          <h3 className="is-bold">Omerta Swap</h3>
+          <img src={logo} alt="Omerta Swap Logo" style={{ marginRight: '10px', maxHeight: '2.5rem' }} />
+          <h3 className="title is-4 has-text-white">Omerta Swap</h3>
         </Link>
 
-        <button className="navbar-burger" aria-label="menu" aria-expanded="false">
+        <button 
+          className={`navbar-burger ${isActive ? 'is-active' : ''}`}
+          onClick={() => setIsActive(!isActive)}
+          aria-label="menu"
+          aria-expanded={isActive}
+        >
           <span aria-hidden="true"></span>
           <span aria-hidden="true"></span>
           <span aria-hidden="true"></span>
         </button>
       </div>
 
-      <div className="navbar-menu">
+      <div className={`navbar-menu ${isActive ? 'is-active' : ''}`}>
         <div className="navbar-start">
-          <Link to="/faq" className="navbar-item">F.A.Q</Link>
-          <Link to="/tos" className="navbar-item">Terms of service</Link>
-          <Link to="/contact" className="navbar-item">Contact</Link>
+          <Link to="/faq" className="navbar-item has-text-white">F.A.Q</Link>
+          <Link to="/tos" className="navbar-item has-text-white">Terms of Service</Link>
+          <Link to="/contact" className="navbar-item has-text-white">Contact</Link>
         </div>
 
         <div className="navbar-end">
@@ -41,4 +59,4 @@ const Header = () => {
   );
 };
 
-export default Header;
+export default Navbar;

@@ -1,0 +1,25 @@
+.address-validation {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  &.checking {
+    color: #666;
+  }
+
+  &.valid {
+    color: #28a745;
+    .valid-icon {
+      color: #28a745;
+    }
+  }
+
+  &.invalid {
+    color: #dc3545;
+    .invalid-icon {
+      color: #dc3545;
+    }
+  }
+} 
