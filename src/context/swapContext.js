@@ -30,32 +30,66 @@ export const SwapProvider = ({ children }) => {
 
   const fetchEstimated = useCallback(async (amount, from, to) => {
     if (amount && from && to) {
+      const numericAmount = parseFloat(amount);
+      if (isNaN(numericAmount) || numericAmount <= 0) {
+        setError('Please enter a valid amount greater than 0');
+        setEstimatedExchangeAmount(null);
+        return;
+      }
+
       setIsEstimateLoading(true);
       try {
         const response = await axios.get(`${API_URL}/get_estimated`, {
           params: {
             api_key: API_KEY,
             fixed: isFixed,
-            currency_from: from,
-            currency_to: to,
-            amount: amount,
+            currency_from: from.toLowerCase(),
+            currency_to: to.toLowerCase(),
+            amount: numericAmount,
           },
         });
 
-        let estimatedAmount;
-        if (typeof response.data === 'number') {
-          estimatedAmount = response.data;
-        } else if (response.data && typeof response.data.estimated_amount === 'number') {
-          estimatedAmount = response.data.estimated_amount;
-        } else {
-          throw new Error('Invalid response format');
-        }
+        if (response.data) {
+          let estimatedAmount;
+          if (typeof response.data === 'number') {
+            estimatedAmount = response.data;
+          } else if (response.data && typeof response.data.estimated_amount === 'number') {
+            estimatedAmount = response.data.estimated_amount;
+          } else if (response.data && response.data.error) {
+            throw new Error(response.data.error);
+          } else {
+            throw new Error('Invalid response format from server');
+          }
 
-        setEstimatedExchangeAmount(estimatedAmount);
+          if (estimatedAmount > 0) {
+            setEstimatedExchangeAmount(estimatedAmount);
+            setError(null);
+          } else {
+            throw new Error('Invalid estimated amount received');
+          }
+        } else {
+          throw new Error('Empty response from server');
+        }
       } catch (error) {
         console.error('Error fetching estimated exchange:', error);
-        setError('Failed to estimate exchange. Please try again later.');
         setEstimatedExchangeAmount(null);
+        if (error.response) {
+          switch (error.response.status) {
+            case 400:
+              setError('Invalid request parameters. Please check your input.');
+              break;
+            case 401:
+              setError('Authentication failed. Please check your API key.');
+              break;
+            case 429:
+              setError('Too many requests. Please try again later.');
+              break;
+            default:
+              setError(error.response.data?.error || 'Failed to estimate exchange. Please try again later.');
+          }
+        } else {
+          setError(error.message || 'Failed to estimate exchange. Please try again later.');
+        }
       } finally {
         setIsEstimateLoading(false);
       }
