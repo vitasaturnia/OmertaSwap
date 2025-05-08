@@ -28,6 +28,49 @@ export const SwapProvider = ({ children }) => {
   const [isFixed, setIsFixed] = useState(false);
   const [estimatedExchangeAmount, setEstimatedExchangeAmount] = useState(null);
 
+  const debouncedFetchEstimated = useCallback(
+    debounce(async (amount, from, to) => {
+      if (amount && from && to) {
+        setIsEstimateLoading(true);
+        try {
+          const response = await axios.get(`${API_URL}/get_estimated`, {
+            params: {
+              api_key: API_KEY,
+              fixed: isFixed,
+              currency_from: from,
+              currency_to: to,
+              amount: amount,
+            },
+          });
+
+          let estimatedAmount;
+          if (typeof response.data === 'number') {
+            estimatedAmount = response.data;
+          } else if (response.data && typeof response.data.estimated_amount === 'number') {
+            estimatedAmount = response.data.estimated_amount;
+          } else {
+            throw new Error('Invalid response format');
+          }
+
+          setEstimatedExchangeAmount(estimatedAmount);
+        } catch (error) {
+          console.error('Error fetching estimated exchange:', error);
+          setError('Failed to estimate exchange. Please try again later.');
+          setEstimatedExchangeAmount(null);
+        } finally {
+          setIsEstimateLoading(false);
+        }
+      } else {
+        setEstimatedExchangeAmount(null);
+      }
+    }, 500),
+    [isFixed, API_KEY, API_URL, setError, setIsEstimateLoading, setEstimatedExchangeAmount]
+  );
+
+  const fetchEstimatedExchange = useCallback((amount, from, to) => {
+    debouncedFetchEstimated(amount, from, to);
+  }, [debouncedFetchEstimated]);
+
   useEffect(() => {
     const fetchCryptocurrencies = async () => {
       setIsLoading(true);
@@ -87,7 +130,7 @@ export const SwapProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [setIsLoading, setError, setAvailablePairs, setBuyCurrency]);
 
   const fetchMinMaxAmount = useCallback(async () => {
     if (sellCurrency && buyCurrency) {
@@ -119,45 +162,6 @@ export const SwapProvider = ({ children }) => {
       }
     }
   }, [sellCurrency, buyCurrency, isFixed]);
-
-  const fetchEstimatedExchange = useCallback(
-    debounce(async (amount, from, to) => {
-      if (amount && from && to) {
-        setIsEstimateLoading(true);
-        try {
-          const response = await axios.get(`${API_URL}/get_estimated`, {
-            params: {
-              api_key: API_KEY,
-              fixed: isFixed,
-              currency_from: from,
-              currency_to: to,
-              amount: amount,
-            },
-          });
-
-          let estimatedAmount;
-          if (typeof response.data === 'number') {
-            estimatedAmount = response.data;
-          } else if (response.data && typeof response.data.estimated_amount === 'number') {
-            estimatedAmount = response.data.estimated_amount;
-          } else {
-            throw new Error('Invalid response format');
-          }
-
-          setEstimatedExchangeAmount(estimatedAmount);
-        } catch (error) {
-          console.error('Error fetching estimated exchange:', error);
-          setError('Failed to estimate exchange. Please try again later.');
-          setEstimatedExchangeAmount(null);
-        } finally {
-          setIsEstimateLoading(false);
-        }
-      } else {
-        setEstimatedExchangeAmount(null);
-      }
-    }, 500),
-    [isFixed, API_KEY, API_URL, setError, setIsEstimateLoading, setEstimatedExchangeAmount]
-  );
 
   const handleSwapCurrencies = useCallback(() => {
     setSellCurrency(buyCurrency);
