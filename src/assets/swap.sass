@@ -100,11 +100,78 @@
 
     .exchange-info
       margin-top: 1rem
-      padding: 1rem
+      padding: 1.5rem
       background-color: $grey-darker
       border-radius: 8px
-      font-size: 0.9rem
+      color: $white
+
+      .title
+        margin-bottom: 1rem
+        color: $white
+
+      .content
+        p
+          margin-bottom: 0.75rem
+          color: $grey-light
+
+        strong
+          color: $white
+
+      .deposit-info
+        margin: 1rem 0
+        padding: 1rem
+        background-color: rgba($primary, 0.1)
+        border-radius: 6px
+
+        .address-box
+          display: flex
+          align-items: center
+          margin: 0.5rem 0
+          padding: 0.5rem
+          background-color: $black
+          border-radius: 4px
+
+          code
+            flex: 1
+            color: $primary
+            word-break: break-all
+
+      .exchange-details
+        margin-top: 1rem
+        padding: 1rem
+        background-color: rgba($info, 0.1)
+        border-radius: 6px
+
+      .extra-id-info
+        margin-top: 1rem
+        padding: 1rem
+        background-color: rgba($warning, 0.1)
+        border-radius: 6px
+
+      .status
+        &-created
+          color: $info
+        &-waiting
+          color: $warning
+        &-confirming
+          color: $warning
+        &-exchanging
+          color: $info
+        &-sending
+          color: $info
+        &-finished
+          color: $success
+        &-failed
+          color: $danger
+        &-refunded
+          color: $warning
+        &-expired
+          color: $danger
+
+    .help
+      font-size: 0.8rem
       color: $grey-light
+      margin-top: 0.25rem
 
     .error-message
       color: $danger

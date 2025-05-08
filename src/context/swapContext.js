@@ -18,6 +18,7 @@ export const SwapProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isEstimateLoading, setIsEstimateLoading] = useState(false);
+  const [isExchangeLoading, setIsExchangeLoading] = useState(false);
   const [minAmount, setMinAmount] = useState(null);
   const [maxAmount, setMaxAmount] = useState(null);
   const [formErrors, setFormErrors] = useState({});
@@ -27,6 +28,16 @@ export const SwapProvider = ({ children }) => {
   const [iconMap, setIconMap] = useState({});
   const [isFixed, setIsFixed] = useState(false);
   const [estimatedExchangeAmount, setEstimatedExchangeAmount] = useState(null);
+  const [depositAddress, setDepositAddress] = useState(null);
+  const [exchangeDetails, setExchangeDetails] = useState(null);
+
+  // Verify API key is present
+  useEffect(() => {
+    if (!API_KEY) {
+      console.error('API key is missing. Please check your .env file.');
+      setError('API key is missing. Please check your configuration.');
+    }
+  }, []);
 
   const fetchEstimated = useCallback(async (amount, from, to) => {
     if (amount && from && to) {
@@ -39,6 +50,14 @@ export const SwapProvider = ({ children }) => {
 
       setIsEstimateLoading(true);
       try {
+        console.log('Fetching estimate with params:', {
+          api_key: API_KEY ? 'API_KEY_PRESENT' : 'API_KEY_MISSING',
+          fixed: isFixed,
+          currency_from: from.toLowerCase(),
+          currency_to: to.toLowerCase(),
+          amount: numericAmount,
+        });
+
         const response = await axios.get(`${API_URL}/get_estimated`, {
           params: {
             api_key: API_KEY,
@@ -49,24 +68,42 @@ export const SwapProvider = ({ children }) => {
           },
         });
 
+        console.log('API Response:', response.data);
+
         if (!response.data) {
           throw new Error('Empty response from server');
         }
 
         let estimatedAmount;
-        if (typeof response.data === 'number') {
-          estimatedAmount = response.data;
-        } else if (response.data && typeof response.data.estimated_amount === 'number') {
-          estimatedAmount = response.data.estimated_amount;
-        } else if (response.data && response.data.error) {
-          throw new Error(response.data.error);
-        } else if (response.data && response.data.result) {
-          estimatedAmount = response.data.result;
+        // Handle direct number or string number responses
+        if (typeof response.data === 'number' || (typeof response.data === 'string' && !isNaN(parseFloat(response.data)))) {
+          estimatedAmount = parseFloat(response.data);
+          console.log('Using direct number response:', estimatedAmount);
+        } 
+        // Then check for object responses
+        else if (typeof response.data === 'object') {
+          if (typeof response.data.estimated_amount === 'number' || (typeof response.data.estimated_amount === 'string' && !isNaN(parseFloat(response.data.estimated_amount)))) {
+            estimatedAmount = parseFloat(response.data.estimated_amount);
+            console.log('Using estimated_amount from response:', estimatedAmount);
+          } else if (response.data.error) {
+            throw new Error(response.data.error);
+          } else if (typeof response.data.result === 'number' || (typeof response.data.result === 'string' && !isNaN(parseFloat(response.data.result)))) {
+            estimatedAmount = parseFloat(response.data.result);
+            console.log('Using result from response:', estimatedAmount);
+          } else if (typeof response.data.estimated === 'number' || (typeof response.data.estimated === 'string' && !isNaN(parseFloat(response.data.estimated)))) {
+            estimatedAmount = parseFloat(response.data.estimated);
+            console.log('Using estimated from response:', estimatedAmount);
+          } else {
+            console.error('Unexpected object response format:', response.data);
+            throw new Error('Invalid response format from server');
+          }
         } else {
+          console.error('Unexpected response type:', typeof response.data, 'value:', response.data);
           throw new Error('Invalid response format from server');
         }
 
         if (estimatedAmount > 0) {
+          console.log('Setting estimated amount:', estimatedAmount);
           setEstimatedExchangeAmount(estimatedAmount);
           setError(null);
         } else {
@@ -74,12 +111,18 @@ export const SwapProvider = ({ children }) => {
         }
       } catch (error) {
         console.error('Error fetching estimated exchange:', error);
+        console.error('Error details:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+        });
+        
         setEstimatedExchangeAmount(null);
         
         if (error.response) {
           switch (error.response.status) {
             case 400:
-              setError('Invalid request parameters. Please check your input.');
+              setError(`Invalid request parameters: ${error.response.data?.error || 'Please check your input.'}`);
               break;
             case 401:
               setError('Authentication failed. Please check your API key.');
@@ -239,34 +282,89 @@ export const SwapProvider = ({ children }) => {
   }, [minAmount, maxAmount]);
 
   const handleSubmit = useCallback(async (data) => {
+    if (!API_KEY) {
+      setError('API key is missing. Please check your configuration.');
+      return;
+    }
+
     const isValid = validateForm(data);
     if (isValid) {
-      setIsLoading(true);
+      setIsExchangeLoading(true);
       setError(null);
       try {
-        const response = await axios.post(`${API_URL}/create_exchange`, {
+        // Step 1: Create the exchange
+        const createResponse = await axios.post(`${API_URL}/create_exchange`, {
           api_key: API_KEY,
           fixed: isFixed,
-          currency_from: data.sellCurrency,
-          currency_to: data.buyCurrency,
+          currency_from: data.sellCurrency.toLowerCase(),
+          currency_to: data.buyCurrency.toLowerCase(),
           amount: data.sellAmount,
           address_to: data.recipientAddress,
         });
 
-        if (response.data && response.data.id) {
-          setExchangeId(response.data.id);
-          setExchangeStatus(response.data.status);
-        } else {
-          throw new Error('Invalid response format');
+        if (!createResponse.data || !createResponse.data.id) {
+          throw new Error('Failed to create exchange: Invalid response');
         }
+
+        const exchangeId = createResponse.data.id;
+        setExchangeId(exchangeId);
+        setExchangeStatus(createResponse.data.status || 'created');
+        setDepositAddress(createResponse.data.address_from);
+        setExchangeDetails(createResponse.data);
+
+        // Step 2: Start monitoring the exchange status
+        const monitorExchange = async () => {
+          try {
+            const statusResponse = await axios.get(`${API_URL}/get_exchange`, {
+              params: {
+                api_key: API_KEY,
+                id: exchangeId
+              }
+            });
+
+            if (statusResponse.data) {
+              setExchangeStatus(statusResponse.data.status);
+              setExchangeDetails(statusResponse.data);
+
+              // Continue monitoring if the exchange is not in a final state
+              if (!['finished', 'failed', 'refunded', 'expired'].includes(statusResponse.data.status)) {
+                setTimeout(monitorExchange, 10000); // Check every 10 seconds
+              }
+            }
+          } catch (error) {
+            console.error('Error monitoring exchange:', error);
+            // Don't stop monitoring on temporary errors
+            setTimeout(monitorExchange, 10000);
+          }
+        };
+
+        // Start monitoring
+        monitorExchange();
+
       } catch (error) {
         console.error('Error creating exchange:', error);
-        setError('Failed to create exchange. Please try again later.');
+        if (error.response) {
+          switch (error.response.status) {
+            case 400:
+              setError('Invalid request parameters. Please check your input.');
+              break;
+            case 401:
+              setError('Authentication failed. Please check your API key in the .env file.');
+              break;
+            case 429:
+              setError('Too many requests. Please try again later.');
+              break;
+            default:
+              setError(error.response.data?.error || 'Failed to create exchange. Please try again later.');
+          }
+        } else {
+          setError(error.message || 'Failed to create exchange. Please try again later.');
+        }
       } finally {
-        setIsLoading(false);
+        setIsExchangeLoading(false);
       }
     }
-  }, [isFixed, validateForm]);
+  }, [isFixed, validateForm, API_KEY]);
 
   const getFilteredOptions = useCallback(() => {
     const popular = cryptocurrencies.filter(c => ['BTC', 'ETH', 'USDT', 'BNB', 'XRP', 'ADA', 'DOGE', 'DOT'].includes(c.symbol.toUpperCase()));
@@ -311,6 +409,7 @@ export const SwapProvider = ({ children }) => {
     setError,
     isLoading,
     isEstimateLoading,
+    isExchangeLoading,
     minAmount,
     maxAmount,
     formErrors,
@@ -329,6 +428,8 @@ export const SwapProvider = ({ children }) => {
     fetchAvailablePairs,
     fetchEstimatedExchange,
     fetchMinMaxAmount,
+    depositAddress,
+    exchangeDetails,
   };
 
   return <SwapContext.Provider value={contextValue}>{children}</SwapContext.Provider>;

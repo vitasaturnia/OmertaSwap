@@ -34,6 +34,9 @@ const SwapComponent = () => {
     setBuyCurrency,
     fetchEstimatedExchange,
     fetchMinMaxAmount,
+    depositAddress,
+    exchangeDetails,
+    isExchangeLoading,
   } = useSwap();
 
   const [isBuyInputActive, setIsBuyInputActive] = useState(false);
@@ -251,8 +254,8 @@ const SwapComponent = () => {
 
             <div className="field is-grouped">
               <div className="control">
-                <button className="button is-primary mt-3" type="submit" disabled={isLoading}>
-                  {isLoading ? <ClipLoader color="#ffffff" size={20} /> : 'Swap'}
+                <button className="button is-primary mt-3" type="submit" disabled={isLoading || isExchangeLoading}>
+                  {isExchangeLoading ? <ClipLoader color="#ffffff" size={20} /> : 'Swap'}
                 </button>
               </div>
               <div className="control">
@@ -264,10 +267,49 @@ const SwapComponent = () => {
           </form>
 
           {exchangeId && (
-            <div className="mt-4">
-              <p className="has-text-success">Exchange created successfully!</p>
-              <p>Exchange ID: {exchangeId}</p>
-              <p>Status: {exchangeStatus}</p>
+            <div className="exchange-info mt-4">
+              <h3 className="title is-5 has-text-white">Exchange Details</h3>
+              <div className="content">
+                <p><strong>Exchange ID:</strong> {exchangeId}</p>
+                <p><strong>Status:</strong> <span className={`status-${exchangeStatus?.toLowerCase()}`}>{exchangeStatus}</span></p>
+                
+                {depositAddress && (
+                  <div className="deposit-info">
+                    <p><strong>Send {sellCurrency} to this address:</strong></p>
+                    <div className="address-box">
+                      <code>{depositAddress}</code>
+                      <button 
+                        className="button is-small is-info ml-2"
+                        onClick={() => navigator.clipboard.writeText(depositAddress)}
+                      >
+                        Copy
+                      </button>
+                    </div>
+                    <p className="help">Please send exactly {sellAmount} {sellCurrency} to this address</p>
+                  </div>
+                )}
+
+                {exchangeDetails && (
+                  <div className="exchange-details">
+                    <p><strong>You will receive:</strong> {exchangeDetails.amount_to} {buyCurrency}</p>
+                    <p><strong>Rate:</strong> 1 {sellCurrency} = {exchangeDetails.rate} {buyCurrency}</p>
+                    {exchangeDetails.extra_id_to && (
+                      <div className="extra-id-info">
+                        <p><strong>Extra ID (Memo/Tag):</strong></p>
+                        <div className="address-box">
+                          <code>{exchangeDetails.extra_id_to}</code>
+                          <button 
+                            className="button is-small is-info ml-2"
+                            onClick={() => navigator.clipboard.writeText(exchangeDetails.extra_id_to)}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
